@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Firebase private service-account keys
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+
+# Build output
+/dist/
+/build/
+
+# Runtime uploads/logs
+*.log
+npm-debug.log*
+/uploads/*
+!/uploads/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
