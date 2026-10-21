@@ -336,14 +336,26 @@ const renderLanding = (req, res) => {
 </html>`);
 };
 
-app.get('/', renderLanding);
+app.get('/', (req, res) => {
+  const p = path.join(__dirname, '../dist/index.html');
+  if (fs.existsSync(p)) return res.sendFile(p);
+  return renderLanding(req, res);
+});
 app.get('/api', renderLanding);
 app.get('/API', renderLanding);
 app.get('/api/docs', renderLanding);
 
 app.use(express.static(path.join(__dirname,'../dist')));
 app.use((err,_req,res,_next)=>{if(err instanceof multer.MulterError)return fail(res,err.code==='LIMIT_FILE_SIZE'?'Receipt image must be 5 MB or smaller.':err.message);if(err) return fail(res,err.message||'Upload failed.');});
-app.use((req,res,next)=>{if(req.path.startsWith('/api/'))return fail(res,'API endpoint not found.',404);if(req.method==='GET'){const p=path.join(__dirname,'../dist/index.html');if(fs.existsSync(p))return res.sendFile(p);return renderLanding(req,res);}next()});
+app.use((req,res,next)=>{
+  if(req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return fail(res,'API endpoint not found.',404);
+  if(req.method==='GET'){
+    const p=path.join(__dirname,'../dist/index.html');
+    if(fs.existsSync(p))return res.sendFile(p);
+    return renderLanding(req,res);
+  }
+  next();
+});
 app.listen(PORT,()=>{
   console.log(`Hems Transport API: http://localhost:${PORT}`);
   ensureSchedules(pool);
