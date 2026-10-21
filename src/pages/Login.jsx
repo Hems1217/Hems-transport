@@ -48,7 +48,7 @@ export default function Login() {
     } catch (error) {
       if (error.code === "auth/popup-closed-by-user") setMsg("Google sign-in was cancelled.");
       else if (error.code === "auth/popup-blocked") setMsg("Your browser blocked the Google sign-in popup.");
-      else if (error.code === "auth/unauthorized-domain") setMsg("Add localhost to Firebase Authentication → Authorized domains.");
+      else if (error.code === "auth/unauthorized-domain") setMsg(`Add "${window.location.hostname}" to Firebase Authentication → Settings → Authorized domains.`);
       else setMsg(error.message || "Google sign-in failed.");
       setGoogleLoading(false);
     }
