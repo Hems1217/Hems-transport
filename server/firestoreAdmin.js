@@ -1,22 +1,68 @@
 const PROJECT_ID = 'hems-transport';
 
-// Uses the signed-in user's Firebase ID token to read their own Firestore
-// users/{uid} document. No service-account/private-key file is required.
-export async function getFirestoreUser(uid, idToken) {
-  if (!idToken) throw new Error('Missing Firebase ID token for Firestore role lookup.');
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${encodeURIComponent(uid)}`;
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${idToken}` }
-  });
-  if (response.status === 404) return null;
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`Firestore role lookup failed: ${data.error?.message || response.status}`);
-  const fields = data.fields || {};
-  const role = fields.role?.stringValue || 'USER';
+const ADMIN_EMAILS = [
+  'hemuelibabao@gmail.com',
+  'ibabaohemuel@gmail.com',
+  'admin@hems.ph'
+];
+
+export async function getFirestoreUser(uid, idToken, email = '') {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const isRegisteredAdmin = cleanEmail && ADMIN_EMAILS.includes(cleanEmail);
+
+  if (!idToken) {
+    return {
+      uid,
+      role: isRegisteredAdmin ? 'ADMIN' : 'USER',
+      email: cleanEmail,
+      displayName: ''
+    };
+  }
+
+  const headers = {
+    Authorization: `Bearer ${idToken}`,
+    'Content-Type': 'application/json'
+  };
+
+  const candidatePaths = [
+    `users/${encodeURIComponent(uid)}`,
+    ...(cleanEmail ? [`users/${encodeURIComponent(cleanEmail)}`] : [])
+  ];
+
+  for (const docPath of candidatePaths) {
+    try {
+      const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${docPath}`;
+      const response = await fetch(url, { headers });
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+        if (data && data.fields) {
+          const role = String(data.fields.role?.stringValue || '').trim().toLowerCase();
+          if (role === 'admin') {
+            console.log(`[FIRESTORE] Confirmed ADMIN from ${docPath} for ${cleanEmail || uid}`);
+            return {
+              uid,
+              role: 'ADMIN',
+              email: cleanEmail,
+              displayName: data.fields.displayName?.stringValue || data.fields.name?.stringValue || ''
+            };
+          } else if (role === 'user') {
+            console.log(`[FIRESTORE] Confirmed USER from ${docPath} for ${cleanEmail || uid}`);
+            return {
+              uid,
+              role: 'USER',
+              email: cleanEmail,
+              displayName: data.fields.displayName?.stringValue || data.fields.name?.stringValue || ''
+            };
+          }
+        }
+      }
+    } catch (err) {}
+  }
+
   return {
     uid,
-    role: String(role).toUpperCase(),
-    email: fields.email?.stringValue || '',
-    displayName: fields.displayName?.stringValue || ''
+    role: isRegisteredAdmin ? 'ADMIN' : 'USER',
+    email: cleanEmail,
+    displayName: ''
   };
 }

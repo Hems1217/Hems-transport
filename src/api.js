@@ -18,7 +18,8 @@ export async function api(path, options = {}) {
     console.warn("Unable to attach Firebase token:", error);
   }
 
-  const res = await fetch(`/api/${path}`, {
+  const baseUrl = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/$/, "") : "";
+  const res = await fetch(`${baseUrl}/api/${path}`, {
     credentials: "include",
     ...options,
     headers

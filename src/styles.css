@@ -1,2 +1,717 @@
-html{scroll-behavior:smooth}body{overflow-x:hidden}.border-start-lg{border-left:1px solid #dee2e6}@media(max-width:991.98px){.border-start-lg{border-left:0;border-top:1px solid #dee2e6;padding-top:1.5rem}}.card{border-radius:1rem}.form-control,.form-select,.btn{border-radius:.7rem}@media print{.navbar,.btn,footer{display:none!important}body{background:#fff!important}.card{box-shadow:none!important}.bg-light{background:#fff!important}}
-.offline-banner{position:sticky;top:56px;z-index:1020;background:#fff3cd;color:#664d03;border-bottom:1px solid #ffecb5;padding:.65rem 1rem;text-align:center;font-size:.9rem}
+/* ==========================================================================
+   HEMS TRANSPORT SERVICES — NEXT-GEN TRANSIT OS DESIGN SYSTEM
+   Futuristic, Sleek, Professional & High-Performance (No Over-the-top Clutter)
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+:root {
+  --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Color Palette - Deep Slate / Space Navy with Electric Blue & Cyan */
+  --bg-dark: #090d16;
+  --bg-dark-secondary: #0d1527;
+  --bg-card: #111a2e;
+  --bg-card-hover: #16223b;
+  --bg-card-elevated: #1a2744;
+  --bg-glass: rgba(13, 21, 39, 0.78);
+  --bg-glass-card: rgba(17, 26, 46, 0.65);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.14);
+  --border-accent: rgba(59, 130, 246, 0.35);
+
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #2563eb;
+  --accent-cyan: #06b6d4;
+  --accent-indigo: #6366f1;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  --glow-blue: 0 0 25px rgba(59, 130, 246, 0.25);
+  --glow-cyan: 0 0 20px rgba(6, 182, 212, 0.25);
+  --glow-emerald: 0 0 20px rgba(16, 185, 129, 0.25);
+  --glow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+}
+
+/* Base Resets */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-family: var(--font-main);
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Futuristic background ambient mesh grid */
+.futuristic-bg {
+  position: relative;
+  background-color: var(--bg-dark);
+  background-image: 
+    radial-gradient(at 15% 15%, rgba(37, 99, 235, 0.12) 0px, transparent 45%),
+    radial-gradient(at 85% 85%, rgba(6, 182, 212, 0.08) 0px, transparent 45%),
+    radial-gradient(at 50% 50%, rgba(99, 102, 241, 0.06) 0px, transparent 60%);
+}
+
+.futuristic-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+/* Glassmorphism Navigation */
+.future-navbar {
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: all 0.25s ease;
+  z-index: 1030;
+}
+
+.future-navbar .navbar-brand {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  display: flex;
+  align-items: center;
+}
+
+.future-navbar .navbar-brand .brand-badge {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: var(--accent-cyan);
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+.future-nav-link {
+  color: var(--text-muted) !important;
+  font-weight: 500;
+  font-size: 0.92rem;
+  padding: 0.5rem 0.9rem !important;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.future-nav-link:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.future-nav-link.active {
+  color: #fff !important;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  font-weight: 600;
+}
+
+/* Futuristic Cards & Panels */
+.future-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glow-card);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.future-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+}
+
+.future-card:hover {
+  border-color: var(--border-accent);
+}
+
+.future-card-interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.45), var(--glow-blue);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.future-card-glass {
+  background: var(--bg-glass-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glow-card);
+}
+
+/* Glowing Pills & Badges */
+.badge-future {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.badge-future-blue {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.badge-future-cyan {
+  background: rgba(6, 182, 212, 0.12);
+  color: #22d3ee;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+}
+
+.badge-future-emerald {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-future-amber {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.badge-future-rose {
+  background: rgba(244, 63, 94, 0.12);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+/* Pulsing Status Beacon */
+.status-beacon {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--accent-emerald);
+  display: inline-block;
+  box-shadow: 0 0 10px var(--accent-emerald);
+  animation: pulseBeacon 2s infinite ease-in-out;
+}
+
+.status-beacon-amber {
+  background-color: var(--accent-amber);
+  box-shadow: 0 0 10px var(--accent-amber);
+}
+
+@keyframes pulseBeacon {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+/* Buttons - Futuristic High-Tech Style */
+.btn-future {
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: -0.01em;
+  padding: 0.65rem 1.4rem;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-future-primary {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+}
+
+.btn-future-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 6px 22px rgba(37, 99, 235, 0.55), var(--glow-blue);
+  transform: translateY(-2px);
+}
+
+.btn-future-outline {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  border: 1px solid var(--border-medium);
+}
+
+.btn-future-outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.btn-future-success {
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+}
+
+.btn-future-success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  box-shadow: 0 6px 22px rgba(16, 185, 129, 0.5), var(--glow-emerald);
+  transform: translateY(-2px);
+}
+
+.btn-future-cyan {
+  background: linear-gradient(135deg, #0284c7, #06b6d4);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.35);
+}
+
+.btn-future-cyan:hover:not(:disabled) {
+  background: linear-gradient(135deg, #06b6d4, #38bdf8);
+  box-shadow: 0 6px 22px rgba(6, 182, 212, 0.5), var(--glow-cyan);
+  transform: translateY(-2px);
+}
+
+/* Forms & Inputs */
+.future-input, .future-select {
+  background-color: rgba(13, 21, 39, 0.85) !important;
+  border: 1px solid var(--border-medium) !important;
+  color: #ffffff !important;
+  border-radius: var(--radius-md) !important;
+  padding: 0.7rem 1rem !important;
+  font-size: 0.95rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.future-input::placeholder {
+  color: var(--text-dim) !important;
+}
+
+.future-input:focus, .future-select:focus {
+  background-color: rgba(17, 26, 46, 0.95) !important;
+  border-color: var(--accent-blue) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22) !important;
+  outline: none !important;
+  color: #fff !important;
+}
+
+.future-select option {
+  background-color: var(--bg-dark-secondary);
+  color: #fff;
+}
+
+.future-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+
+/* Stepper Progress Bar */
+.stepper-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.stepper-node {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.stepper-node.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: var(--accent-blue);
+  color: #fff;
+  box-shadow: var(--glow-blue);
+}
+
+.stepper-node.completed {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.stepper-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+}
+
+.stepper-node.active .stepper-circle {
+  background: var(--accent-blue);
+  color: #fff;
+}
+
+.stepper-node.completed .stepper-circle {
+  background: var(--accent-emerald);
+  color: #fff;
+}
+
+.stepper-line {
+  flex: 1;
+  max-width: 48px;
+  height: 2px;
+  background: var(--border-subtle);
+}
+
+.stepper-line.active {
+  background: var(--accent-blue);
+}
+
+/* Route Timeline Visualizer */
+.transit-timeline {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+
+.transit-point {
+  text-align: left;
+  z-index: 2;
+}
+
+.transit-point-end {
+  text-align: right;
+  z-index: 2;
+}
+
+.transit-track {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan), var(--accent-blue));
+  position: relative;
+  margin: 0 1.25rem;
+}
+
+.transit-track-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-card);
+  border: 1px solid var(--border-accent);
+  color: var(--accent-cyan);
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* Digital Boarding Pass / Ticket */
+.boarding-pass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  position: relative;
+}
+
+.ticket-header {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(6, 182, 212, 0.1));
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1.25rem 1.75rem;
+}
+
+.ticket-divider {
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0.5rem 0;
+}
+
+.ticket-notch-left {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg-dark);
+  margin-left: -10px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.ticket-notch-right {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg-dark);
+  margin-right: -10px;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.ticket-dashed-line {
+  flex: 1;
+  border-top: 2px dashed rgba(255, 255, 255, 0.12);
+  margin: 0 10px;
+}
+
+/* Interactive Futuristic Credit Card Preview */
+.interactive-card-preview {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 18px;
+  padding: 1.5rem;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  position: relative;
+  overflow: hidden;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.interactive-card-preview::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.chip-icon {
+  width: 44px;
+  height: 32px;
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+  border-radius: 6px;
+  display: inline-block;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+/* Bus Seat Layout Preview */
+.bus-layout-preview {
+  background: var(--bg-dark-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.bus-seat {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.bus-seat.occupied {
+  background: rgba(244, 63, 94, 0.12);
+  border-color: rgba(244, 63, 94, 0.3);
+  color: #fb7185;
+}
+
+.bus-seat.available {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.bus-seat.selected {
+  background: var(--accent-blue);
+  border-color: #fff;
+  color: #fff;
+  box-shadow: var(--glow-blue);
+}
+
+/* Verification Scanner Pulse */
+.scanner-frame {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  margin: 0 auto;
+  border: 2px solid rgba(59, 130, 246, 0.4);
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 21, 39, 0.5);
+}
+
+.scanner-frame::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #38bdf8, #3b82f6, transparent);
+  box-shadow: 0 0 15px #38bdf8;
+  animation: scanline 2.5s infinite ease-in-out;
+}
+
+@keyframes scanline {
+  0% { top: 0%; opacity: 0.2; }
+  50% { top: 96%; opacity: 1; }
+  100% { top: 0%; opacity: 0.2; }
+}
+
+/* Offline Banner */
+.offline-banner {
+  position: sticky;
+  top: 60px;
+  z-index: 1025;
+  background: rgba(245, 158, 11, 0.18);
+  backdrop-filter: blur(10px);
+  color: #fde68a;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 0.65rem 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Print Stylesheet */
+@media print {
+  .navbar, .future-navbar, .btn, .btn-future, footer, .ticket-actions, .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .future-card, .boarding-pass-card {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #cccccc !important;
+    box-shadow: none !important;
+  }
+  .ticket-header {
+    background: #f1f5f9 !important;
+    color: #000000 !important;
+  }
+  .text-secondary, .text-muted {
+    color: #555555 !important;
+  }
+}
+
+/* ================= UTILITY EXTENSIONS ================= */
+.text-cyan { color: var(--accent-cyan) !important; }
+.text-emerald { color: var(--accent-emerald) !important; }
+.text-amber { color: var(--accent-amber) !important; }
+.text-rose { color: var(--accent-rose) !important; }
+
+.border-white-10 { border-color: rgba(255, 255, 255, 0.1) !important; }
+
+.border-start-lg {
+  border-left: 1px solid var(--border-subtle);
+}
+@media (max-width: 991.98px) {
+  .border-start-lg {
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 1.5rem;
+  }
+}
+
+.fw-extrabold { font-weight: 800 !important; }
+.tracking-tight { letter-spacing: -0.025em; }
+.tracking-wide { letter-spacing: 0.05em; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.spin {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+

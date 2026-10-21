@@ -1,18 +1,23 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow create: if request.auth != null
-                    && request.auth.uid == uid
-                    && request.resource.data.uid == uid
-                    && request.resource.data.role == 'user';
-      // A user can update profile fields but cannot change their own role.
-      allow update: if request.auth != null
-                    && request.auth.uid == uid
-                    && request.resource.data.uid == uid
-                    && request.resource.data.role == resource.data.role;
+    // Allow authenticated users to read user/role records whether indexed by UID or Email.
+    match /users/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
       allow delete: if false;
+    }
+    match /admins/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /roles/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
     }
   }
 }

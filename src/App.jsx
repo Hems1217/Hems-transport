@@ -13,7 +13,21 @@ import AdminDashboard from "./pages/AdminDashboard";
 import OfflineIndicator from "./components/OfflineIndicator";
 
 function Loading() {
-  return <div className="container py-5 text-center"><div className="spinner-border text-primary" /></div>;
+  return (
+    <div className="futuristic-bg min-vh-100 d-flex align-items-center justify-content-center py-5">
+      <div className="text-center">
+        <div className="spinner-border text-primary mb-3" style={{ width: "3rem", height: "3rem" }} />
+        <div className="text-muted small">Loading Hems Transit OS...</div>
+      </div>
+    </div>
+  );
+}
+
+function UserRoute({ children }) {
+  const { loading, isAdmin } = useAuth();
+  if (loading) return <Loading />;
+  if (isAdmin) return <Navigate to="/admin" replace />;
+  return <><Navbar /><OfflineIndicator />{children}</>;
 }
 
 function CustomerRoute({ children }) {
@@ -34,13 +48,13 @@ function AdminRoute() {
 
 function AppRoutes() {
   return <Routes>
-    <Route path="/" element={<><Navbar /><OfflineIndicator /><Home /></>} />
+    <Route path="/" element={<UserRoute><Home /></UserRoute>} />
     <Route path="/login" element={<Login />} />
     <Route path="/register" element={<Register />} />
     <Route path="/booking" element={<CustomerRoute><Booking /></CustomerRoute>} />
     <Route path="/bookings" element={<CustomerRoute><Bookings /></CustomerRoute>} />
-    <Route path="/receipt" element={<Receipt />} />
-    <Route path="/verify" element={<><Navbar /><OfflineIndicator /><Verify /></>} />
+    <Route path="/receipt" element={<UserRoute><Receipt /></UserRoute>} />
+    <Route path="/verify" element={<UserRoute><Verify /></UserRoute>} />
     <Route path="/admin" element={<AdminRoute />} />
     <Route path="/admin/login" element={<Navigate to="/login" replace state={{ from: "/admin" }} />} />
     <Route path="*" element={<Navigate to="/" replace />} />

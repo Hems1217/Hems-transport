@@ -15,5 +15,10 @@ export default function OfflineIndicator() {
   }, []);
 
   if (online) return null;
-  return <div className="offline-banner"><i className="bi bi-wifi-off me-2" />Offline mode, please connect to the internet to access the full website hehehe</div>;
+  return (
+    <div className="offline-banner" role="alert">
+      <i className="bi bi-wifi-off me-2" />
+      <span>Network Offline — Showing cached system data. Please reconnect to confirm live bookings.</span>
+    </div>
+  );
 }

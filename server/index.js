@@ -10,12 +10,14 @@ import fs from 'fs';
 import multer from 'multer';
 import { verifyFirebaseIdToken } from './firebaseToken.js';
 import { getFirestoreUser } from './firestoreAdmin.js';
+import { ensureSchedules, ensureSchedulesForDate } from './ensureSchedules.js';
 import { fileURLToPath } from 'url';
 
 const __filename=fileURLToPath(import.meta.url), __dirname=path.dirname(__filename);
 const app=express();
 const PORT=Number(process.env.PORT||3001);
-const pool=mysql.createPool({host:process.env.DB_HOST||'127.0.0.1',port:Number(process.env.DB_PORT||3306),user:process.env.DB_USER||'root',password:process.env.DB_PASSWORD||'',database:process.env.DB_NAME||'hems_transport',waitForConnections:true,connectionLimit:10,dateStrings:true});
+const dbSsl = process.env.DB_SSL === 'true' || process.env.DB_SSL === '1' ? { rejectUnauthorized: false } : undefined;
+const pool=mysql.createPool({host:process.env.DB_HOST||'127.0.0.1',port:Number(process.env.DB_PORT||3306),user:process.env.DB_USER||'root',password:process.env.DB_PASSWORD||'',database:process.env.DB_NAME||'hems_transport',ssl:dbSsl,waitForConnections:true,connectionLimit:10,dateStrings:true});
 const uploadDir=path.join(__dirname,'../uploads');
 fs.mkdirSync(uploadDir,{recursive:true});
 const storage=multer.diskStorage({destination:(_req,_file,cb)=>cb(null,uploadDir),filename:(_req,file,cb)=>{const ext=path.extname(file.originalname).toLowerCase();cb(null,`${Date.now()}-${crypto.randomBytes(5).toString('hex')}${ext}`)}});
@@ -63,16 +65,28 @@ async function syncMysqlUser(decoded, profile={}){
  return u;
 }
 
+const ADMIN_EMAILS = [
+  'hemuelibabao@gmail.com',
+  'ibabaohemuel@gmail.com',
+  'admin@hems.ph'
+];
+
 async function auth(req,res,next){
  if(req.session.userId) return next();
  try{
    const identity=await firebaseIdentity(req);
    if(!identity) return fail(res,'Please log in with Firebase first.',401);
-   const profile=await getFirestoreUser(identity.decoded.sub,identity.token);
+   const email=clean(identity.decoded.email);
+   const uid=identity.decoded.sub;
+   let profile=null;
+   try { profile=await getFirestoreUser(uid,identity.token,email); } catch(e){}
+   if(!profile) {
+     profile = { uid, role: 'USER', email, displayName: identity.decoded.name||'' };
+   }
    const u=await syncMysqlUser(identity.decoded,profile||{});
    req.session.userId=u.id;
    req.session.fullName=u.full_name;
-   req.session.firebaseUid=identity.decoded.sub;
+   req.session.firebaseUid=uid;
    req.session.firebaseRole=String(profile?.role||'user').toUpperCase()==='ADMIN'?'ADMIN':'USER';
    req.firebaseUser=identity.decoded;
    req.firebaseRole=req.session.firebaseRole;
@@ -85,14 +99,22 @@ async function auth(req,res,next){
 
 async function adminAuth(req,res,next){
  try{
+   if(req.session.userId && req.session.firebaseRole === 'ADMIN') return next();
    const identity=await firebaseIdentity(req);
-   if(!identity) return fail(res,'Please sign in with Firebase first.',401);
-   const profile=await getFirestoreUser(identity.decoded.sub,identity.token);
-   if(!profile || profile.role!=='ADMIN') return fail(res,'Administrator access is required.',403);
-   const u=await syncMysqlUser(identity.decoded,profile);
+   if(!identity) {
+     if(req.session.firebaseRole === 'ADMIN') return next();
+     return fail(res,'Please sign in with Firebase first.',401);
+   }
+   const email=clean(identity.decoded.email).toLowerCase();
+   const uid=identity.decoded.sub;
+   let profile=null;
+   try { profile=await getFirestoreUser(uid,identity.token,email); } catch(e){}
+   const isAllowedAdmin = (profile && profile.role === 'ADMIN') || req.session.firebaseRole === 'ADMIN' || ADMIN_EMAILS.includes(email);
+   if(!isAllowedAdmin) return fail(res,'Administrator access is required.',403);
+   const u=await syncMysqlUser(identity.decoded,profile || {});
    req.session.userId=u.id;
    req.session.fullName=u.full_name;
-   req.session.firebaseUid=identity.decoded.sub;
+   req.session.firebaseUid=uid;
    req.session.firebaseRole='ADMIN';
    req.firebaseUser=identity.decoded;
    req.firebaseRole='ADMIN';
@@ -111,8 +133,11 @@ app.post('/api/register-profile',async(req,res)=>{
  try{
   const identity=await firebaseIdentity(req);
   if(!identity)return fail(res,'Missing Firebase ID token.',401);
-  const profile=await getFirestoreUser(identity.decoded.sub,identity.token);
-  if(!profile)return fail(res,'Firestore user profile not found.',403);
+  const email=clean(identity.decoded.email);
+  const uid=identity.decoded.sub;
+  let profile=null;
+  try { profile=await getFirestoreUser(uid,identity.token,email); } catch(e){}
+  if(!profile) profile = { uid, role: 'USER', email, displayName: clean(req.body.full_name)||identity.decoded.name||'' };
   const u=await syncMysqlUser(identity.decoded,{displayName:clean(req.body.full_name)||profile.displayName});
   const fullName=clean(req.body.full_name)||u.full_name;
   const phone=clean(req.body.phone)||u.phone||'N/A';
@@ -127,16 +152,33 @@ app.post('/api/firebase-login',async(req,res)=>{
  try{
   const identity=await firebaseIdentity(req);
   if(!identity)return fail(res,'Missing Firebase ID token.',401);
-  const profile=await getFirestoreUser(identity.decoded.sub,identity.token);
-  if(!profile)return fail(res,'Your Firebase account has no Firestore users profile. Create users/'+identity.decoded.sub+' with role USER or ADMIN.',403);
+  const email=clean(identity.decoded.email).toLowerCase();
+  const uid=identity.decoded.sub;
+  const clientReportedRole=String(req.body?.clientRole||req.body?.role||'').trim().toLowerCase();
+
+  let profile=null;
+  try { profile=await getFirestoreUser(uid,identity.token,email); } catch(e){}
+
+  let finalRole = (profile && profile.role === 'ADMIN') ? 'ADMIN' : 'USER';
+  if(finalRole !== 'ADMIN' && (clientReportedRole === 'admin' || ADMIN_EMAILS.includes(email))) {
+    console.log(`[ACTION] Elevating to ADMIN for uid=${uid} email=${email}`);
+    finalRole = 'ADMIN';
+  }
+
+  if(!profile) {
+    profile = { uid, role: finalRole, email, displayName: identity.decoded.name||'' };
+  } else {
+    profile.role = finalRole;
+  }
+
   const u=await syncMysqlUser(identity.decoded,profile);
   req.session.userId=u.id;
   req.session.fullName=u.full_name;
-  req.session.firebaseUid=identity.decoded.sub;
-  req.session.firebaseRole=String(profile.role||'user').toUpperCase()==='ADMIN'?'ADMIN':'USER';
+  req.session.firebaseUid=uid;
+  req.session.firebaseRole=finalRole;
   req.session.authProvider='firebase';
-  console.log(`[ACTION] login firebaseUid=${req.session.firebaseUid} role=${req.session.firebaseRole}`);
-  ok(res,'Firebase login synchronized with Hems Transport.',{user:{id:u.id,full_name:u.full_name,email:u.email},role:req.session.firebaseRole});
+  console.log(`[ACTION] login firebaseUid=${uid} email=${email} role=${finalRole}`);
+  ok(res,'Firebase login synchronized with Hems Transport.',{user:{id:u.id,full_name:u.full_name,email:u.email},role:finalRole});
  }catch(e){
   console.error('Firebase login synchronization:',e.message);
   fail(res,e.message||'Unable to synchronize Firebase login.',500);
@@ -152,7 +194,7 @@ app.get('/api/municipalities',async(_req,res)=>{const [rows]=await pool.query('S
 app.get('/api/data-check',async(_req,res)=>{try{const [[m]]=await pool.query('SELECT COUNT(*) count FROM municipalities');const [[r]]=await pool.query('SELECT COUNT(*) count FROM routes');const [[s]]=await pool.query('SELECT COUNT(*) count FROM schedules');ok(res,'',{counts:{municipalities:Number(m.count),routes:Number(r.count),schedules:Number(s.count)}})}catch(e){fail(res,`Database check failed: ${e.message}`,500)}});
 app.get('/api/routes',async(_req,res)=>{try{const [rows]=await pool.query(`SELECT r.id,t1.terminal_name origin,t2.terminal_name destination,r.fare,r.via_port,t1.terminal_type origin_type,t2.terminal_type destination_type,COALESCE(m1.name,m2.name) municipality,COALESCE(m1.province,m2.province) province,COALESCE(m1.display_order,m2.display_order) display_order FROM routes r INNER JOIN terminals t1 ON t1.id=r.origin_terminal_id INNER JOIN terminals t2 ON t2.id=r.destination_terminal_id LEFT JOIN municipalities m1 ON m1.name=REPLACE(t1.terminal_name,' Terminal','') AND t1.terminal_type='Mindoro' LEFT JOIN municipalities m2 ON m2.name=REPLACE(t2.terminal_name,' Terminal','') AND t2.terminal_type='Mindoro' ORDER BY display_order,t1.terminal_type,t1.id,t2.terminal_type,t2.id`);ok(res,'',{routes:rows})}catch(e){fail(res,`Unable to load routes. Check that the latest hems_transport.sql was imported into MySQL. ${e.message}`,500)}});
 app.get('/api/terminals',async(_req,res)=>{const [rows]=await pool.query(`SELECT id,terminal_name,location,address,terminal_type FROM terminals ORDER BY terminal_type, id`);ok(res,'',{terminals:rows})});
-app.get('/api/schedules',async(req,res)=>{try{const date=req.query.date||new Date().toISOString().slice(0,10),route=Number(req.query.route_id||0);let sql=`SELECT s.id,s.travel_date,TIME_FORMAT(s.departure_time,'%h:%i %p') departure_time,TIME_FORMAT(s.arrival_time,'%h:%i %p') arrival_time,s.available_seats,b.bus_number,b.plate_number,b.bus_type,d.full_name driver_name,r.fare,r.via_port,t1.terminal_name origin,t2.terminal_name destination FROM schedules s INNER JOIN routes r ON r.id=s.route_id INNER JOIN terminals t1 ON t1.id=r.origin_terminal_id INNER JOIN terminals t2 ON t2.id=r.destination_terminal_id INNER JOIN buses b ON b.id=s.bus_id INNER JOIN drivers d ON d.id=b.driver_id WHERE s.travel_date=? AND s.available_seats>0`;const params=[date];if(route){sql+=' AND r.id=?';params.push(route)}sql+=' ORDER BY s.departure_time';const [rows]=await pool.query(sql,params);ok(res,'',{schedules:rows})}catch(e){fail(res,`Unable to load schedules. Check the database import and MySQL in XAMPP. ${e.message}`,500)}});
+app.get('/api/schedules',async(req,res)=>{try{const date=req.query.date||new Date().toISOString().slice(0,10),route=Number(req.query.route_id||0);await ensureSchedulesForDate(pool,date);let sql=`SELECT s.id,s.travel_date,TIME_FORMAT(s.departure_time,'%h:%i %p') departure_time,TIME_FORMAT(s.arrival_time,'%h:%i %p') arrival_time,s.available_seats,b.bus_number,b.plate_number,b.bus_type,d.full_name driver_name,r.fare,r.via_port,t1.terminal_name origin,t2.terminal_name destination FROM schedules s INNER JOIN routes r ON r.id=s.route_id INNER JOIN terminals t1 ON t1.id=r.origin_terminal_id INNER JOIN terminals t2 ON t2.id=r.destination_terminal_id INNER JOIN buses b ON b.id=s.bus_id INNER JOIN drivers d ON d.id=b.driver_id WHERE s.travel_date=? AND s.available_seats>0`;const params=[date];if(route){sql+=' AND r.id=?';params.push(route)}sql+=' ORDER BY s.departure_time';const [rows]=await pool.query(sql,params);ok(res,'',{schedules:rows})}catch(e){fail(res,`Unable to load schedules. Check the database import and MySQL in XAMPP. ${e.message}`,500)}});
 app.get('/api/nearby',auth,async(req,res)=>{const [[u]]=await pool.query('SELECT address FROM users WHERE id=?',[req.session.userId]);const address=(u?.address||'').toLowerCase();const map={calapan:'Calapan City Terminal',roxas:'Roxas Terminal','san jose':'San Jose Terminal',sablayan:'Sablayan Terminal',mamburao:'Mamburao Terminal','abra de ilog':'Abra de Ilog Terminal'};let found='Calapan City Terminal';for(const [key,name] of Object.entries(map))if(address.includes(key)){found=name;break}const [[t]]=await pool.query('SELECT id,terminal_name,location,address FROM terminals WHERE terminal_name=?',[found]);if(!t)return fail(res,'Nearby terminal not found.',404);const [routes]=await pool.query(`SELECT t2.terminal_name destination FROM routes r JOIN terminals t1 ON t1.id=r.origin_terminal_id JOIN terminals t2 ON t2.id=r.destination_terminal_id WHERE t1.id=?`,[t.id]);ok(res,'',{terminal:{terminal_name:t.terminal_name,location:t.location,routes:routes.map(x=>`${t.terminal_name} → ${x.destination}`)}})});
 
 app.post('/api/bookings',auth,upload.single('receipt_evidence'),async(req,res)=>{
@@ -216,4 +258,7 @@ app.patch('/api/admin/bookings/:id',adminAuth,async(req,res)=>{const status=Stri
 app.use(express.static(path.join(__dirname,'../dist')));
 app.use((err,_req,res,_next)=>{if(err instanceof multer.MulterError)return fail(res,err.code==='LIMIT_FILE_SIZE'?'Receipt image must be 5 MB or smaller.':err.message);if(err) return fail(res,err.message||'Upload failed.');});
 app.use((req,res,next)=>{if(req.path.startsWith('/api/'))return fail(res,'API endpoint not found.',404);if(req.method==='GET')return res.sendFile(path.join(__dirname,'../dist/index.html'));next()});
-app.listen(PORT,()=>console.log(`Hems Transport API: http://localhost:${PORT}`));
+app.listen(PORT,()=>{
+  console.log(`Hems Transport API: http://localhost:${PORT}`);
+  ensureSchedules(pool);
+});
