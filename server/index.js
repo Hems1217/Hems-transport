@@ -255,9 +255,95 @@ app.patch('/api/admin/payments/:id',adminAuth,async(req,res)=>{const status=Stri
 
 app.patch('/api/admin/bookings/:id',adminAuth,async(req,res)=>{const status=String(req.body.status||'').toUpperCase();if(!['CONFIRMED','COMPLETED','CANCELLED'].includes(status))return fail(res,'Invalid booking status.');const conn=await pool.getConnection();try{await conn.beginTransaction();const [[b]]=await conn.query('SELECT * FROM bookings WHERE id=? FOR UPDATE',[Number(req.params.id)]);if(!b)throw new Error('Booking not found.');if(b.booking_status===status){await conn.rollback();return ok(res,'Booking already has that status.')}if(status==='CANCELLED' && b.booking_status!=='CANCELLED')await conn.query('UPDATE schedules SET available_seats=available_seats+1 WHERE id=?',[b.schedule_id]);if(status!=='CANCELLED' && b.booking_status==='CANCELLED')await conn.query('UPDATE schedules SET available_seats=GREATEST(available_seats-1,0) WHERE id=?',[b.schedule_id]);await conn.query('UPDATE bookings SET booking_status=? WHERE id=?',[status,Number(req.params.id)]);await conn.commit();console.log(`[ACTION] admin-booking-status id=${req.params.id} status=${status} admin=${req.session.firebaseUid||'unknown'}`);ok(res,`Booking marked ${status}.`)}catch(e){await conn.rollback();fail(res,e.message||'Unable to update booking.',400)}finally{conn.release()}});
 
+const apiDocs = {
+  service: "Hems Transport Transit OS API",
+  version: "1.0.0",
+  status: "ONLINE",
+  database: "TiDB Cloud MySQL (Connected)",
+  frontend: "https://dancing-llama-b209c2.netlify.app",
+  endpoints: {
+    health: "/api/health",
+    terminals: "/api/terminals",
+    routes: "/api/routes",
+    schedules: "/api/schedules?origin_terminal_id=1&destination_terminal_id=2",
+    verify: "/api/verify?ref=HMS-EXAMPLE"
+  }
+};
+
+const renderLanding = (req, res) => {
+  if (req.headers.accept && req.headers.accept.includes('application/json') && !req.headers.accept.includes('text/html')) {
+    return res.json(apiDocs);
+  }
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hems Transport API</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #090d16; color: #f1f5f9; font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; margin: 0; }
+    .card-future { background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 1rem; box-shadow: 0 0 35px rgba(6, 182, 212, 0.15); backdrop-filter: blur(12px); max-width: 720px; width: 100%; padding: 2.2rem; }
+    .badge-live { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 9999px; padding: 0.35rem 0.85rem; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 0.5rem; }
+    .badge-live::before { content: ""; width: 8px; height: 8px; background: #34d399; border-radius: 50%; box-shadow: 0 0 10px #34d399; }
+    .api-link { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1.15rem; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.65rem; color: #38bdf8; text-decoration: none; margin-bottom: 0.65rem; transition: all 0.2s ease; font-family: monospace; font-size: 0.95rem; }
+    .api-link:hover { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.4); color: #7dd3fc; transform: translateX(4px); }
+    .method { font-weight: bold; color: #10b981; font-size: 0.8rem; padding: 0.2rem 0.5rem; background: rgba(16, 185, 129, 0.15); border-radius: 0.35rem; margin-right: 0.75rem; }
+  </style>
+</head>
+<body>
+  <div class="card-future">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div>
+        <div class="badge-live mb-2">API ONLINE</div>
+        <h3 class="fw-bold text-white mb-0">Hems Transport Transit OS API</h3>
+        <p class="text-secondary small mb-0">High-Performance Inter-Island Engine</p>
+      </div>
+      <a href="https://dancing-llama-b209c2.netlify.app" target="_blank" class="btn btn-primary px-3 py-2 fw-semibold" style="background: linear-gradient(135deg, #2563eb, #06b6d4); border: none;">
+        <i class="bi bi-box-arrow-up-right me-1"></i> Open Web App
+      </a>
+    </div>
+
+    <h6 class="text-uppercase text-secondary fw-bold small mb-3" style="letter-spacing: 0.08em;">Live Public Endpoints</h6>
+    
+    <a class="api-link" href="/api/health" target="_blank">
+      <div><span class="method">GET</span>/api/health</div>
+      <span class="text-secondary small">System Health <i class="bi bi-arrow-right"></i></span>
+    </a>
+
+    <a class="api-link" href="/api/terminals" target="_blank">
+      <div><span class="method">GET</span>/api/terminals</div>
+      <span class="text-secondary small">28 Bus Terminals <i class="bi bi-arrow-right"></i></span>
+    </a>
+
+    <a class="api-link" href="/api/routes" target="_blank">
+      <div><span class="method">GET</span>/api/routes</div>
+      <span class="text-secondary small">104 Inter-Island Routes <i class="bi bi-arrow-right"></i></span>
+    </a>
+
+    <a class="api-link" href="/api/schedules?origin_terminal_id=1&destination_terminal_id=2" target="_blank">
+      <div><span class="method">GET</span>/api/schedules?origin_terminal_id=1&destination_terminal_id=2</div>
+      <span class="text-secondary small">Real-Time Schedules <i class="bi bi-arrow-right"></i></span>
+    </a>
+
+    <div class="mt-4 pt-3 border-top border-secondary border-opacity-25 d-flex flex-wrap justify-content-between text-secondary small gap-2">
+      <span>Database: <strong class="text-info">TiDB Cloud MySQL (Connected)</strong></span>
+      <span>Host: <strong class="text-success">Render (Production)</strong></span>
+    </div>
+  </div>
+</body>
+</html>`);
+};
+
+app.get('/', renderLanding);
+app.get('/api', renderLanding);
+app.get('/API', renderLanding);
+app.get('/api/docs', renderLanding);
+
 app.use(express.static(path.join(__dirname,'../dist')));
 app.use((err,_req,res,_next)=>{if(err instanceof multer.MulterError)return fail(res,err.code==='LIMIT_FILE_SIZE'?'Receipt image must be 5 MB or smaller.':err.message);if(err) return fail(res,err.message||'Upload failed.');});
-app.use((req,res,next)=>{if(req.path.startsWith('/api/'))return fail(res,'API endpoint not found.',404);if(req.method==='GET')return res.sendFile(path.join(__dirname,'../dist/index.html'));next()});
+app.use((req,res,next)=>{if(req.path.startsWith('/api/'))return fail(res,'API endpoint not found.',404);if(req.method==='GET'){const p=path.join(__dirname,'../dist/index.html');if(fs.existsSync(p))return res.sendFile(p);return renderLanding(req,res);}next()});
 app.listen(PORT,()=>{
   console.log(`Hems Transport API: http://localhost:${PORT}`);
   ensureSchedules(pool);
