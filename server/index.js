@@ -65,12 +65,6 @@ async function syncMysqlUser(decoded, profile={}){
  return u;
 }
 
-const ADMIN_EMAILS = [
-  'hemuelibabao@gmail.com',
-  'ibabaohemuel@gmail.com',
-  'admin@hems.ph'
-];
-
 async function auth(req,res,next){
  if(req.session.userId) return next();
  try{
@@ -99,7 +93,8 @@ async function auth(req,res,next){
 
 async function adminAuth(req,res,next){
  try{
-   if(req.session.userId && req.session.firebaseRole === 'ADMIN') return next();
+   const hasBearer=Boolean(req.headers.authorization && req.headers.authorization.startsWith('Bearer '));
+   if(!hasBearer && req.session.userId && req.session.firebaseRole === 'ADMIN') return next();
    const identity=await firebaseIdentity(req);
    if(!identity) {
      if(req.session.firebaseRole === 'ADMIN') return next();
@@ -109,8 +104,11 @@ async function adminAuth(req,res,next){
    const uid=identity.decoded.sub;
    let profile=null;
    try { profile=await getFirestoreUser(uid,identity.token,email); } catch(e){}
-   const isAllowedAdmin = (profile && profile.role === 'ADMIN') || req.session.firebaseRole === 'ADMIN' || ADMIN_EMAILS.includes(email);
-   if(!isAllowedAdmin) return fail(res,'Administrator access is required.',403);
+   const isAllowedAdmin = profile?.fromFirestore ? profile.role === 'ADMIN' : req.session.firebaseRole === 'ADMIN';
+   if(!isAllowedAdmin) {
+     if(req.session) req.session.firebaseRole='USER';
+     return fail(res,'Administrator access is required.',403);
+   }
    const u=await syncMysqlUser(identity.decoded,profile || {});
    req.session.userId=u.id;
    req.session.fullName=u.full_name;
@@ -159,10 +157,13 @@ app.post('/api/firebase-login',async(req,res)=>{
   let profile=null;
   try { profile=await getFirestoreUser(uid,identity.token,email); } catch(e){}
 
-  let finalRole = (profile && profile.role === 'ADMIN') ? 'ADMIN' : 'USER';
-  if(finalRole !== 'ADMIN' && (clientReportedRole === 'admin' || ADMIN_EMAILS.includes(email))) {
-    console.log(`[ACTION] Elevating to ADMIN for uid=${uid} email=${email}`);
-    finalRole = 'ADMIN';
+  let finalRole = 'USER';
+  if (clientReportedRole === 'user') {
+    finalRole = 'USER';
+  } else if (profile && profile.fromFirestore) {
+    finalRole = profile.role;
+  } else {
+    finalRole = clientReportedRole === 'admin' ? 'ADMIN' : 'USER';
   }
 
   if(!profile) {

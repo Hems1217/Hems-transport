@@ -1,21 +1,15 @@
 const PROJECT_ID = 'hems-transport';
 
-const ADMIN_EMAILS = [
-  'hemuelibabao@gmail.com',
-  'ibabaohemuel@gmail.com',
-  'admin@hems.ph'
-];
-
 export async function getFirestoreUser(uid, idToken, email = '') {
   const cleanEmail = String(email || '').trim().toLowerCase();
-  const isRegisteredAdmin = cleanEmail && ADMIN_EMAILS.includes(cleanEmail);
 
   if (!idToken) {
     return {
       uid,
-      role: isRegisteredAdmin ? 'ADMIN' : 'USER',
+      role: 'USER',
       email: cleanEmail,
-      displayName: ''
+      displayName: '',
+      fromFirestore: false
     };
   }
 
@@ -37,21 +31,15 @@ export async function getFirestoreUser(uid, idToken, email = '') {
         const data = await response.json().catch(() => ({}));
         if (data && data.fields) {
           const role = String(data.fields.role?.stringValue || '').trim().toLowerCase();
-          if (role === 'admin') {
-            console.log(`[FIRESTORE] Confirmed ADMIN from ${docPath} for ${cleanEmail || uid}`);
+          if (role === 'admin' || role === 'user') {
+            const normalized = role === 'admin' ? 'ADMIN' : 'USER';
+            console.log(`[FIRESTORE] Confirmed ${normalized} from ${docPath} for ${cleanEmail || uid}`);
             return {
               uid,
-              role: 'ADMIN',
+              role: normalized,
               email: cleanEmail,
-              displayName: data.fields.displayName?.stringValue || data.fields.name?.stringValue || ''
-            };
-          } else if (role === 'user') {
-            console.log(`[FIRESTORE] Confirmed USER from ${docPath} for ${cleanEmail || uid}`);
-            return {
-              uid,
-              role: 'USER',
-              email: cleanEmail,
-              displayName: data.fields.displayName?.stringValue || data.fields.name?.stringValue || ''
+              displayName: data.fields.displayName?.stringValue || data.fields.name?.stringValue || '',
+              fromFirestore: true
             };
           }
         }
@@ -61,8 +49,9 @@ export async function getFirestoreUser(uid, idToken, email = '') {
 
   return {
     uid,
-    role: isRegisteredAdmin ? 'ADMIN' : 'USER',
+    role: 'USER',
     email: cleanEmail,
-    displayName: ''
+    displayName: '',
+    fromFirestore: false
   };
 }

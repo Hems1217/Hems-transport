@@ -1,25 +1,20 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { api } from "./api";
 
 const AuthContext = createContext(null);
 
-// Admin accounts. Strictly "admin" and "user" roles only.
-const ADMIN_EMAILS = [
-  "hemuelibabao@gmail.com",
-  "ibabaohemuel@gmail.com",
-  "admin@hems.ph",
-];
+function normalizeRole(rawRole) {
+  return String(rawRole || "").trim().toLowerCase() === "admin" ? "admin" : "user";
+}
 
 // Resolves user role strictly as "admin" or "user" from Firestore.
-// If Firestore is restricted by security rules, correctly recognizes the admin account.
 export async function resolveFirestoreRole(user) {
   if (!user) return "user";
   const email = String(user.email || "").trim().toLowerCase();
   const uid = user.uid;
-  const isRegisteredAdmin = email && ADMIN_EMAILS.includes(email);
 
   try {
     // 1. Check doc by UID: users/{UID}
@@ -27,9 +22,7 @@ export async function resolveFirestoreRole(user) {
     const uidSnap = await getDoc(uidRef);
     if (uidSnap.exists()) {
       const data = uidSnap.data();
-      const role = String(data.role || "").trim().toLowerCase();
-      if (role === "admin") return "admin";
-      if (role === "user") return "user";
+      if (data?.role) return normalizeRole(data.role);
     }
 
     // 2. Check doc by Email: users/{email}
@@ -38,24 +31,32 @@ export async function resolveFirestoreRole(user) {
       const emailSnap = await getDoc(emailRef);
       if (emailSnap.exists()) {
         const data = emailSnap.data();
-        const role = String(data.role || "").trim().toLowerCase();
-        if (role === "admin") return "admin";
-        if (role === "user") return "user";
+        if (data?.role) return normalizeRole(data.role);
+      }
+    }
+
+    // 3. Query users collection by email field
+    if (user.email) {
+      const q = query(collection(db, "users"), where("email", "==", user.email), limit(5));
+      const querySnap = await getDocs(q);
+      for (const d of querySnap.docs) {
+        const data = d.data();
+        if (data?.role) return normalizeRole(data.role);
       }
     }
   } catch (err) {
     console.warn("Firestore role check encountered restriction:", err?.message);
   }
 
-  return isRegisteredAdmin ? "admin" : "user";
+  return "user";
 }
 
 // Automatically creates/synchronizes users/{Firebase UID}.
-// Strictly "admin" or "user" role.
-export async function ensureFirestoreUser(user) {
+// Strictly "admin" or "user" role without overwriting an existing Firestore role.
+export async function ensureFirestoreUser(user, resolvedRole = "user") {
   if (!user) return "user";
+  const safeRole = resolvedRole === "admin" ? "admin" : "user";
   try {
-    const role = await resolveFirestoreRole(user);
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref).catch(() => null);
     const existing = snap && snap.exists() ? snap.data() : {};
@@ -67,19 +68,21 @@ export async function ensureFirestoreUser(user) {
       email: user.email || existing.email || "",
       photoURL: user.photoURL || existing.photoURL || "",
       provider,
-      role,
     };
 
     if (!snap || !snap.exists()) {
-      await setDoc(ref, { ...profile, createdAt: serverTimestamp() }).catch(() => {});
-    } else {
-      await setDoc(ref, profile, { merge: true }).catch(() => {});
+      await setDoc(ref, { ...profile, role: safeRole, createdAt: serverTimestamp() }).catch(() => {});
+      return safeRole;
     }
-    return role;
+
+    if (!existing.role) {
+      profile.role = safeRole;
+    }
+    await setDoc(ref, profile, { merge: true }).catch(() => {});
+    return existing.role ? normalizeRole(existing.role) : safeRole;
   } catch (err) {
     console.warn("Firestore profile sync bypassed:", err?.message);
-    const email = String(user.email || "").trim().toLowerCase();
-    return ADMIN_EMAILS.includes(email) ? "admin" : "user";
+    return safeRole;
   }
 }
 
@@ -106,7 +109,7 @@ export function AuthProvider({ children }) {
 
       try {
         const firestoreRole = await resolveFirestoreRole(currentUser);
-        ensureFirestoreUser(currentUser).catch(() => {});
+        ensureFirestoreUser(currentUser, firestoreRole).catch(() => {});
 
         const token = await currentUser.getIdToken();
         const session = await api("firebase-login", {
@@ -115,7 +118,7 @@ export function AuthProvider({ children }) {
           body: JSON.stringify({ clientRole: firestoreRole }),
         });
 
-        const effectiveRole = (session.role === "ADMIN" || firestoreRole === "admin") ? "admin" : "user";
+        const effectiveRole = firestoreRole === "admin" ? "admin" : "user";
 
         if (alive) {
           setFirebaseUser(currentUser);
@@ -125,10 +128,8 @@ export function AuthProvider({ children }) {
       } catch (error) {
         console.error("Firebase auth/role initialization error:", error);
         if (alive) {
-          const email = String(currentUser.email || "").trim().toLowerCase();
-          const fallback = ADMIN_EMAILS.includes(email) ? "admin" : "user";
           setFirebaseUser(currentUser);
-          setRole(fallback);
+          setRole("user");
         }
       } finally {
         if (alive) setLoading(false);
