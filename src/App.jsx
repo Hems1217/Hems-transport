@@ -7,9 +7,12 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Booking from "./pages/Booking";
 import Bookings from "./pages/Bookings";
+import Profile from "./pages/Profile";
 import Receipt from "./pages/Receipt";
 import Verify from "./pages/Verify";
 import AdminDashboard from "./pages/AdminDashboard";
+import AccessDenied from "./pages/AccessDenied";
+import NotFound from "./pages/NotFound";
 import OfflineIndicator from "./components/OfflineIndicator";
 
 function Loading() {
@@ -42,25 +45,33 @@ function AdminRoute() {
   const { loading, firebaseUser, isAdmin } = useAuth();
   if (loading) return <Loading />;
   if (!firebaseUser) return <Navigate to="/login" replace state={{ from: "/admin" }} />;
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/access-denied" replace />;
   return <><AdminDashboard /><OfflineIndicator /></>;
 }
 
 function AppRoutes() {
-  return <Routes>
-    <Route path="/" element={<UserRoute><Home /></UserRoute>} />
-    <Route path="/login" element={<Login />} />
-    <Route path="/register" element={<Register />} />
-    <Route path="/booking" element={<CustomerRoute><Booking /></CustomerRoute>} />
-    <Route path="/bookings" element={<CustomerRoute><Bookings /></CustomerRoute>} />
-    <Route path="/receipt" element={<UserRoute><Receipt /></UserRoute>} />
-    <Route path="/verify" element={<UserRoute><Verify /></UserRoute>} />
-    <Route path="/admin" element={<AdminRoute />} />
-    <Route path="/admin/login" element={<Navigate to="/login" replace state={{ from: "/admin" }} />} />
-    <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes>;
+  return (
+    <Routes>
+      <Route path="/" element={<UserRoute><Home /></UserRoute>} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/booking" element={<CustomerRoute><Booking /></CustomerRoute>} />
+      <Route path="/bookings" element={<CustomerRoute><Bookings /></CustomerRoute>} />
+      <Route path="/profile" element={<CustomerRoute><Profile /></CustomerRoute>} />
+      <Route path="/receipt" element={<UserRoute><Receipt /></UserRoute>} />
+      <Route path="/verify" element={<UserRoute><Verify /></UserRoute>} />
+      <Route path="/access-denied" element={<AccessDenied />} />
+      <Route path="/admin" element={<AdminRoute />} />
+      <Route path="/admin/login" element={<Navigate to="/login" replace state={{ from: "/admin" }} />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
 }
 
 export default function App() {
-  return <AuthProvider><AppRoutes /></AuthProvider>;
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  );
 }

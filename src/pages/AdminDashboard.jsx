@@ -84,6 +84,24 @@ export default function AdminDashboard() {
     }
   }
 
+  async function deleteBooking(id) {
+    if (!window.confirm("Are you sure you want to permanently delete this booking? This will remove the reservation and release any reserved seats.")) return;
+    setBusy(`booking-${id}`);
+    setMessage("");
+    try {
+      const result = await api(`admin/bookings/${id}`, {
+        method: "DELETE",
+      });
+      if (!result.success) throw new Error(result.message || "Failed to delete booking.");
+      await loadAllData();
+      setMessage("Booking deleted successfully.");
+    } catch (error) {
+      setMessage(error.message || "Unable to delete booking.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function updatePaymentStatus(id, status) {
     setBusy(`payment-${id}`);
     setMessage("");
@@ -369,17 +387,28 @@ export default function AdminDashboard() {
                           <StatusBadge value={b.booking_status} />
                         </td>
                         <td>
-                          <select
-                            className="form-select form-select-sm future-select py-1"
-                            style={{ minWidth: 130, fontSize: "0.82rem" }}
-                            value={b.booking_status}
-                            disabled={busy === `booking-${b.id}`}
-                            onChange={(e) => updateBookingStatus(b.id, e.target.value)}
-                          >
-                            <option value="CONFIRMED">CONFIRMED</option>
-                            <option value="COMPLETED">COMPLETED</option>
-                            <option value="CANCELLED">CANCELLED</option>
-                          </select>
+                          <div className="d-flex align-items-center gap-1">
+                            <select
+                              className="form-select form-select-sm future-select py-1"
+                              style={{ minWidth: 125, fontSize: "0.82rem" }}
+                              value={b.booking_status}
+                              disabled={busy === `booking-${b.id}`}
+                              onChange={(e) => updateBookingStatus(b.id, e.target.value)}
+                            >
+                              <option value="CONFIRMED">CONFIRMED</option>
+                              <option value="COMPLETED">COMPLETED</option>
+                              <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger py-1 px-2"
+                              disabled={busy === `booking-${b.id}`}
+                              onClick={() => deleteBooking(b.id)}
+                              title="Delete booking (CRUD DELETE)"
+                            >
+                              <i className="bi bi-trash3" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

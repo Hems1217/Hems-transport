@@ -25,9 +25,24 @@ export async function api(path, options = {}) {
     headers
   });
 
-  let data = { success: false, message: "Invalid server response" };
-  try { data = await res.json(); } catch {}
-  if (!res.ok && !data.message) data.message = `Request failed (${res.status})`;
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = {
+      success: false,
+      message: res.status === 502 || res.status === 503 || res.status === 504
+        ? "Render backend is waking up from sleep. Please wait 15-30 seconds and refresh."
+        : res.status === 404
+        ? `API endpoint '/api/${path}' not found (404).`
+        : !res.ok
+        ? `Server returned HTTP ${res.status}.`
+        : "Invalid server response"
+    };
+  }
+  if (!res.ok && data && !data.message) {
+    data.message = `Request failed (${res.status})`;
+  }
   return data;
 }
 

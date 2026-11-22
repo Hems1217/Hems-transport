@@ -78,24 +78,35 @@ export default function Navbar() {
             </li>
 
             {loggedIn && (
-              <li className="nav-item">
-                <NavLink className="future-nav-link" to="/bookings" onClick={closeMenu}>
-                  <i className="bi bi-ticket-perforated" />
-                  <span>My Bookings</span>
-                </NavLink>
-              </li>
+              <>
+                <li className="nav-item">
+                  <NavLink className="future-nav-link" to="/bookings" onClick={closeMenu}>
+                    <i className="bi bi-ticket-perforated" />
+                    <span>My Bookings</span>
+                  </NavLink>
+                </li>
+                <li className="nav-item">
+                  <NavLink className="future-nav-link" to="/profile" onClick={closeMenu}>
+                    <i className="bi bi-person-badge" />
+                    <span>Profile</span>
+                  </NavLink>
+                </li>
+              </>
             )}
 
             {/* User status & Auth CTA */}
             {loggedIn ? (
               <li className="nav-item ms-lg-3 mt-2 mt-lg-0 pt-2 pt-lg-0 border-top border-lg-0 border-white-10">
                 <div className="d-flex align-items-center gap-2">
-                  <div
-                    className="d-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+                  <Link
+                    to="/profile"
+                    onClick={closeMenu}
+                    className="d-flex align-items-center gap-2 px-3 py-1 rounded-pill text-decoration-none"
                     style={{
                       background: "rgba(255, 255, 255, 0.05)",
                       border: "1px solid rgba(255, 255, 255, 0.12)",
                     }}
+                    title="View Passenger Profile"
                   >
                     <div
                       className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
@@ -111,7 +122,7 @@ export default function Navbar() {
                     <span className="small text-white fw-medium text-truncate" style={{ maxWidth: 140 }}>
                       {displayName}
                     </span>
-                  </div>
+                  </Link>
 
                   <button
                     className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 rounded-pill px-3"

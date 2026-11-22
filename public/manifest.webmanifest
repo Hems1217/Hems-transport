@@ -4,9 +4,9 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0d6efd",
-  "description": "Online bus booking for Hems Transport Services",
+  "background_color": "#090d16",
+  "theme_color": "#0284c7",
+  "description": "Smart Provincial Bus Booking & Ro-Ro Transit Network across Mindoro and Manila",
   "icons": [
     {
       "src": "/icons-192.png",

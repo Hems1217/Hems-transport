@@ -1,7 +1,8 @@
-const CACHE = "hems-transport-v4";
+const CACHE = "hems-transport-v5";
 const SHELL = [
   "/",
   "/index.html",
+  "/manifest.json",
   "/manifest.webmanifest",
   "/icons-192.png",
   "/icons-512.png",
@@ -30,7 +31,9 @@ async function networkFirst(request) {
     }
     return response;
   } catch {
-    return (await caches.match(request)) || new Response(JSON.stringify({ success: false, offline: true, message: "Offline. Cached transport data may be available." }), {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    return new Response(JSON.stringify({ success: false, offline: true, message: "Offline. Cached transport data may be available." }), {
       status: 503,
       headers: { "Content-Type": "application/json" },
     });
@@ -43,7 +46,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith("/api/")) {
-    if (PUBLIC_API.some(path => url.pathname === path)) event.respondWith(networkFirst(event.request));
+    if (PUBLIC_API.some(path => url.pathname.startsWith(path))) event.respondWith(networkFirst(event.request));
     return;
   }
 
