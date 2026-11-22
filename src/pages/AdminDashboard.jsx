@@ -69,6 +69,15 @@ export default function AdminDashboard() {
     loadAllData();
   }, []);
 
+  useEffect(() => {
+    if (!viewEvidence) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setViewEvidence(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [viewEvidence]);
+
   async function updateBookingStatus(id, status) {
     setBusy(`booking-${id}`);
     setMessage("");
@@ -608,16 +617,27 @@ export default function AdminDashboard() {
         <div
           className="modal fade show d-block"
           tabIndex="-1"
-          style={{ background: "rgba(0, 0, 0, 0.8)", backdropFilter: "blur(8px)" }}
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setViewEvidence(null)}
+          style={{ background: "rgba(0, 0, 0, 0.8)", backdropFilter: "blur(8px)", zIndex: 1055 }}
         >
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="future-card border-primary p-4 w-100">
+          <div className="modal-dialog modal-dialog-centered modal-lg" style={{ pointerEvents: "none" }}>
+            <div
+              className="modal-content future-card border-primary p-4 w-100"
+              style={{ pointerEvents: "auto", background: "var(--bg-card)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-white-10">
                 <h5 className="fw-bold text-white mb-0">Payment Proof Inspection</h5>
                 <button
                   type="button"
                   className="btn-close btn-close-white"
-                  onClick={() => setViewEvidence(null)}
+                  aria-label="Close"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setViewEvidence(null);
+                  }}
                 />
               </div>
 
@@ -642,7 +662,10 @@ export default function AdminDashboard() {
                 <button
                   type="button"
                   className="btn-future btn-future-primary btn-sm px-4"
-                  onClick={() => setViewEvidence(null)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setViewEvidence(null);
+                  }}
                 >
                   Close
                 </button>

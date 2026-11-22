@@ -36,6 +36,7 @@ app.use((req, res, next) => {
 });
 app.use(session({secret:process.env.SESSION_SECRET||'hems-local-secret',resave:false,saveUninitialized:false,cookie:{httpOnly:true,sameSite:'lax',secure:false,maxAge:7*24*60*60*1000}}));
 app.use('/uploads',express.static(uploadDir));
+app.use('/uploads',express.static(path.join(__dirname,'../public/uploads')));
 const ok=(res,message='',extra={})=>res.json({success:true,message,...extra});
 const fail=(res,message,status=400)=>res.status(status).json({success:false,message});
 const clean=v=>String(v??'').trim();
@@ -47,6 +48,9 @@ async function ensureUserRoleColumn() {
  if (roleColumnEnsured) return;
  try {
    await pool.query("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'USER'");
+ } catch {}
+ try {
+   await pool.query("ALTER TABLE payments MODIFY COLUMN receipt_evidence LONGTEXT NULL");
  } catch {}
  roleColumnEnsured = true;
 }
@@ -225,6 +229,7 @@ app.post('/api/bookings',auth,upload.single('receipt_evidence'),async(req,res)=>
  if(payment_method==='Credit Card' && !/^\d{13,19}$/.test(clean(card_number).replace(/\s+/g,'')))return fail(res,'Enter a valid card number (13–19 digits).');
  if(payment_method==='Credit Card' && !/^\d{3,4}$/.test(clean(card_cvv)))return fail(res,'Enter a valid CVV.');
  if(payment_method==='GCash' && !/^09\d{9}$/.test(clean(gcash_number).replace(/\s+/g,'')))return fail(res,'Enter a valid 11-digit GCash number.');
+ await ensureUserRoleColumn();
  const conn=await pool.getConnection();
  try{
   await conn.beginTransaction();
@@ -244,7 +249,11 @@ app.post('/api/bookings',auth,upload.single('receipt_evidence'),async(req,res)=>
   const accountName=payment_method==='GCash'?clean(gcash_name):null;
   const accountNumber=payment_method==='GCash'?clean(gcash_number):null;
   const cardLast4=payment_method==='Credit Card'?clean(card_number).replace(/\s+/g,'').slice(-4):null;
-  const evidence=`/uploads/${req.file.filename}`;
+  let evidence=`/uploads/${req.file.filename}`;
+  try{
+    const raw=fs.readFileSync(req.file.path);
+    evidence=`data:${req.file.mimetype};base64,${raw.toString('base64')}`;
+  }catch{}
   await conn.query(`INSERT INTO payments(booking_id,payment_method,amount,payment_status,transaction_reference,account_name,account_number,cardholder_name,card_last4,receipt_evidence,paid_at) VALUES(?,?,?,?,?,?,?,?,?,?,NULL)`,[b.insertId,payment_method,total,'PENDING',transactionRef,accountName,accountNumber,payment_method==='Credit Card'?clean(cardholder_name):null,cardLast4,evidence]);
   await conn.query('UPDATE schedules SET available_seats=available_seats-1 WHERE id=?',[Number(schedule_id)]);
   await conn.commit();
