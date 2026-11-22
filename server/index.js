@@ -40,6 +40,17 @@ const ok=(res,message='',extra={})=>res.json({success:true,message,...extra});
 const fail=(res,message,status=400)=>res.status(status).json({success:false,message});
 const clean=v=>String(v??'').trim();
 const money=n=>Number(n||0);
+const verifiedRolesByUid = new Map();
+let roleColumnEnsured = false;
+
+async function ensureUserRoleColumn() {
+ if (roleColumnEnsured) return;
+ try {
+   await pool.query("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'USER'");
+ } catch {}
+ roleColumnEnsured = true;
+}
+
 async function firebaseIdentity(req){
  const h=req.headers.authorization||'';
  if(!h.startsWith('Bearer ')) return null;
@@ -50,6 +61,7 @@ async function firebaseIdentity(req){
 }
 
 async function syncMysqlUser(decoded, profile={}){
+ await ensureUserRoleColumn();
  const email=clean(decoded.email);
  if(!email) throw new Error('Firebase account does not contain an email address.');
  const fullName=clean(decoded.name)||clean(profile.displayName)||email.split('@')[0];
@@ -78,10 +90,11 @@ async function auth(req,res,next){
      profile = { uid, role: 'USER', email, displayName: identity.decoded.name||'' };
    }
    const u=await syncMysqlUser(identity.decoded,profile||{});
+   const resolvedRole=profile?.fromFirestore ? profile.role : (verifiedRolesByUid.get(uid)||String(u?.role||'USER').toUpperCase());
    req.session.userId=u.id;
    req.session.fullName=u.full_name;
    req.session.firebaseUid=uid;
-   req.session.firebaseRole=String(profile?.role||'user').toUpperCase()==='ADMIN'?'ADMIN':'USER';
+   req.session.firebaseRole=resolvedRole==='ADMIN'?'ADMIN':'USER';
    req.firebaseUser=identity.decoded;
    req.firebaseRole=req.session.firebaseRole;
    next();
@@ -93,23 +106,25 @@ async function auth(req,res,next){
 
 async function adminAuth(req,res,next){
  try{
-   const hasBearer=Boolean(req.headers.authorization && req.headers.authorization.startsWith('Bearer '));
-   if(!hasBearer && req.session.userId && req.session.firebaseRole === 'ADMIN') return next();
    const identity=await firebaseIdentity(req);
    if(!identity) {
-     if(req.session.firebaseRole === 'ADMIN') return next();
+     if(req.session.userId && req.session.firebaseRole === 'ADMIN') return next();
      return fail(res,'Please sign in with Firebase first.',401);
    }
    const email=clean(identity.decoded.email).toLowerCase();
    const uid=identity.decoded.sub;
    let profile=null;
    try { profile=await getFirestoreUser(uid,identity.token,email); } catch(e){}
-   const isAllowedAdmin = profile?.fromFirestore ? profile.role === 'ADMIN' : req.session.firebaseRole === 'ADMIN';
+   const u=await syncMysqlUser(identity.decoded,profile || {});
+   const isAllowedAdmin = profile?.fromFirestore
+     ? profile.role === 'ADMIN'
+     : (req.session?.firebaseRole === 'ADMIN' || verifiedRolesByUid.get(uid) === 'ADMIN' || String(u?.role || '').toUpperCase() === 'ADMIN');
    if(!isAllowedAdmin) {
+     verifiedRolesByUid.set(uid,'USER');
      if(req.session) req.session.firebaseRole='USER';
      return fail(res,'Administrator access is required.',403);
    }
-   const u=await syncMysqlUser(identity.decoded,profile || {});
+   verifiedRolesByUid.set(uid,'ADMIN');
    req.session.userId=u.id;
    req.session.fullName=u.full_name;
    req.session.firebaseUid=uid;
@@ -173,6 +188,8 @@ app.post('/api/firebase-login',async(req,res)=>{
   }
 
   const u=await syncMysqlUser(identity.decoded,profile);
+  verifiedRolesByUid.set(uid,finalRole);
+  await pool.query('UPDATE users SET role=? WHERE id=?',[finalRole,u.id]).catch(()=>{});
   req.session.userId=u.id;
   req.session.fullName=u.full_name;
   req.session.firebaseUid=uid;
@@ -219,7 +236,11 @@ app.post('/api/bookings',auth,upload.single('receipt_evidence'),async(req,res)=>
   const total=Math.round((Number(s.fare)-discountAmount)*100)/100;
   const bookingRef=await uniqueRef(conn);
   const [b]=await conn.query(`INSERT INTO bookings(booking_reference,user_id,schedule_id,passenger_name,passenger_address,passenger_age,contact_number,discount_type,discount_amount,total_amount,booking_status) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,[bookingRef,req.session.userId,Number(schedule_id),clean(passenger_name),clean(passenger_address),Number(passenger_age),clean(contact_number),discount_type,discountAmount,total,'CONFIRMED']);
-  const transactionRef=payment_method==='GCash'?clean(gcash_reference):`CARD-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
+  let transactionRef=payment_method==='GCash'?clean(gcash_reference):`CARD-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
+  const [[dupPay]]=await conn.query('SELECT id FROM payments WHERE transaction_reference=? LIMIT 1',[transactionRef]);
+  if(dupPay){
+    transactionRef=`${transactionRef}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+  }
   const accountName=payment_method==='GCash'?clean(gcash_name):null;
   const accountNumber=payment_method==='GCash'?clean(gcash_number):null;
   const cardLast4=payment_method==='Credit Card'?clean(card_number).replace(/\s+/g,'').slice(-4):null;
@@ -232,7 +253,7 @@ app.post('/api/bookings',auth,upload.single('receipt_evidence'),async(req,res)=>
  }catch(e){await conn.rollback();if(req.file)try{fs.unlinkSync(req.file.path)}catch{};fail(res,e.message||'Unable to create booking.',400)}finally{conn.release()}
 });
 
-const bookingQuery=`SELECT b.*,p.payment_method,p.payment_status,p.transaction_reference,p.account_name,p.account_number,p.cardholder_name,p.card_last4,p.receipt_evidence,TIME_FORMAT(s.departure_time,'%h:%i %p') departure_time,TIME_FORMAT(s.arrival_time,'%h:%i %p') arrival_time,s.travel_date,bus.bus_number,bus.plate_number,d.full_name driver_name,t1.terminal_name origin,t2.terminal_name destination,r.via_port FROM bookings b JOIN schedules s ON s.id=b.schedule_id JOIN routes r ON r.id=s.route_id JOIN terminals t1 ON t1.id=r.origin_terminal_id JOIN terminals t2 ON t2.id=r.destination_terminal_id JOIN buses bus ON bus.id=s.bus_id JOIN drivers d ON d.id=bus.driver_id JOIN payments p ON p.booking_id=b.id`;
+const bookingQuery=`SELECT b.*,COALESCE(p.payment_method,'GCash') payment_method,COALESCE(p.payment_status,'PENDING') payment_status,p.transaction_reference,p.account_name,p.account_number,p.cardholder_name,p.card_last4,p.receipt_evidence,u.full_name user_name,u.email user_email,TIME_FORMAT(s.departure_time,'%h:%i %p') departure_time,TIME_FORMAT(s.arrival_time,'%h:%i %p') arrival_time,s.travel_date,bus.bus_number,bus.plate_number,d.full_name driver_name,t1.terminal_name origin,t2.terminal_name destination,r.via_port FROM bookings b LEFT JOIN users u ON u.id=b.user_id LEFT JOIN schedules s ON s.id=b.schedule_id LEFT JOIN routes r ON r.id=s.route_id LEFT JOIN terminals t1 ON t1.id=r.origin_terminal_id LEFT JOIN terminals t2 ON t2.id=r.destination_terminal_id LEFT JOIN buses bus ON bus.id=s.bus_id LEFT JOIN drivers d ON d.id=bus.driver_id LEFT JOIN payments p ON p.booking_id=b.id`;
 app.get('/api/bookings/mine',auth,async(req,res)=>{const [rows]=await pool.query(`${bookingQuery} WHERE b.user_id=? ORDER BY b.created_at DESC`,[req.session.userId]);ok(res,'',{bookings:rows})});
 app.get('/api/bookings/receipt',auth,async(req,res)=>{const [rows]=await pool.query(`${bookingQuery} WHERE b.booking_reference=? AND b.user_id=? LIMIT 1`,[clean(req.query.ref),req.session.userId]);if(!rows[0])return fail(res,'Receipt not found.',404);ok(res,'',{booking:rows[0]})});
 app.get('/api/verify',async(req,res)=>{const [rows]=await pool.query(`SELECT b.booking_reference,b.passenger_name,b.booking_status,p.payment_status,p.payment_method,TIME_FORMAT(s.departure_time,'%h:%i %p') departure_time,s.travel_date,bus.bus_number,t1.terminal_name origin,t2.terminal_name destination,r.via_port FROM bookings b JOIN schedules s ON s.id=b.schedule_id JOIN routes r ON r.id=s.route_id JOIN terminals t1 ON t1.id=r.origin_terminal_id JOIN terminals t2 ON t2.id=r.destination_terminal_id JOIN buses bus ON bus.id=s.bus_id JOIN payments p ON p.booking_id=b.id WHERE b.booking_reference=? LIMIT 1`,[clean(req.query.ref)]);const b=rows[0];if(!b||b.booking_status!=='CONFIRMED')return fail(res,'Booking is invalid or cancelled.');ok(res,'Valid booking.',{booking:b})});
@@ -247,8 +268,8 @@ app.get('/api/admin/dashboard',adminAuth,async(_req,res)=>{try{
  ok(res,'',{stats:{users:Number(users.count),bookings:Number(bookings.count),pendingPayments:Number(pending.count),buses:Number(buses.count),schedules:Number(schedules.count)}});
 }catch(e){fail(res,`Unable to load admin dashboard: ${e.message}`,500)}});
 
-app.get('/api/admin/bookings',adminAuth,async(_req,res)=>{try{const [rows]=await pool.query(`${bookingQuery} JOIN users u ON u.id=b.user_id ORDER BY b.created_at DESC`);ok(res,'',{bookings:rows})}catch(e){fail(res,`Unable to load bookings: ${e.message}`,500)}});
-app.get('/api/admin/payments',adminAuth,async(_req,res)=>{try{const [rows]=await pool.query(`SELECT p.*,b.booking_reference,b.passenger_name,u.full_name user_name,u.email,s.travel_date,TIME_FORMAT(s.departure_time,'%h:%i %p') departure_time,t1.terminal_name origin,t2.terminal_name destination FROM payments p JOIN bookings b ON b.id=p.booking_id JOIN users u ON u.id=b.user_id JOIN schedules s ON s.id=b.schedule_id JOIN routes r ON r.id=s.route_id JOIN terminals t1 ON t1.id=r.origin_terminal_id JOIN terminals t2 ON t2.id=r.destination_terminal_id ORDER BY p.id DESC`);ok(res,'',{payments:rows})}catch(e){fail(res,`Unable to load payments: ${e.message}`,500)}});
+app.get('/api/admin/bookings',adminAuth,async(_req,res)=>{try{const [rows]=await pool.query(`${bookingQuery} ORDER BY b.created_at DESC`);ok(res,'',{bookings:rows})}catch(e){fail(res,`Unable to load bookings: ${e.message}`,500)}});
+app.get('/api/admin/payments',adminAuth,async(_req,res)=>{try{const [rows]=await pool.query(`SELECT p.*,b.booking_reference,b.passenger_name,u.full_name user_name,u.email,s.travel_date,TIME_FORMAT(s.departure_time,'%h:%i %p') departure_time,t1.terminal_name origin,t2.terminal_name destination FROM payments p JOIN bookings b ON b.id=p.booking_id LEFT JOIN users u ON u.id=b.user_id LEFT JOIN schedules s ON s.id=b.schedule_id LEFT JOIN routes r ON r.id=s.route_id LEFT JOIN terminals t1 ON t1.id=r.origin_terminal_id LEFT JOIN terminals t2 ON t2.id=r.destination_terminal_id ORDER BY p.id DESC`);ok(res,'',{payments:rows})}catch(e){fail(res,`Unable to load payments: ${e.message}`,500)}});
 app.get('/api/admin/users',adminAuth,async(_req,res)=>{try{const [rows]=await pool.query('SELECT id,full_name,email,phone,address,age,created_at FROM users ORDER BY created_at DESC');ok(res,'',{users:rows})}catch(e){fail(res,`Unable to load users: ${e.message}`,500)}});
 app.get('/api/admin/schedules',adminAuth,async(_req,res)=>{try{const [rows]=await pool.query(`SELECT s.id,s.travel_date,TIME_FORMAT(s.departure_time,'%h:%i %p') departure_time,TIME_FORMAT(s.arrival_time,'%h:%i %p') arrival_time,s.available_seats,b.bus_number,b.plate_number,b.bus_type,d.full_name driver_name,r.fare,r.via_port,t1.terminal_name origin,t2.terminal_name destination FROM schedules s JOIN routes r ON r.id=s.route_id JOIN terminals t1 ON t1.id=r.origin_terminal_id JOIN terminals t2 ON t2.id=r.destination_terminal_id JOIN buses b ON b.id=s.bus_id JOIN drivers d ON d.id=b.driver_id ORDER BY s.travel_date DESC,s.departure_time`);ok(res,'',{schedules:rows})}catch(e){fail(res,`Unable to load schedules: ${e.message}`,500)}});
 
@@ -361,5 +382,6 @@ app.use((req,res,next)=>{
 });
 app.listen(PORT,()=>{
   console.log(`Hems Transport API: http://localhost:${PORT}`);
+  ensureUserRoleColumn();
   ensureSchedules(pool);
 });

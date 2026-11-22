@@ -53,7 +53,9 @@ export default function AdminDashboard() {
 
       if (dashRes.success) setStats(dashRes.stats);
       if (bookRes.success) setBookings(bookRes.bookings || []);
+      else if (bookRes.message) setMessage(bookRes.message);
       if (payRes.success) setPayments(payRes.payments || []);
+      else if (bookRes.success && payRes.message) setMessage(payRes.message);
       if (schedRes.success) setSchedules(schedRes.schedules || []);
       if (userRes.success) setUsers(userRes.users || []);
     } catch (error) {
