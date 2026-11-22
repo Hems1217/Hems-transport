@@ -615,61 +615,69 @@ export default function AdminDashboard() {
       {/* Modal / Lightbox for Receipt Evidence Preview */}
       {viewEvidence && (
         <div
-          className="modal fade show d-block"
-          tabIndex="-1"
           role="dialog"
           aria-modal="true"
           onClick={() => setViewEvidence(null)}
-          style={{ background: "rgba(0, 0, 0, 0.8)", backdropFilter: "blur(8px)", zIndex: 1055 }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0, 0, 0, 0.82)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+          }}
         >
-          <div className="modal-dialog modal-dialog-centered modal-lg" style={{ pointerEvents: "none" }}>
-            <div
-              className="modal-content future-card border-primary p-4 w-100"
-              style={{ pointerEvents: "auto", background: "var(--bg-card)" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-white-10">
-                <h5 className="fw-bold text-white mb-0">Payment Proof Inspection</h5>
-                <button
-                  type="button"
-                  className="btn-close btn-close-white"
-                  aria-label="Close"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setViewEvidence(null);
-                  }}
-                />
-              </div>
+          <div
+            className="future-card border-primary p-4 w-100"
+            style={{
+              maxWidth: 760,
+              background: "var(--bg-card)",
+              position: "relative",
+              zIndex: 10000,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-white-10">
+              <h5 className="fw-bold text-white mb-0">Payment Proof Inspection</h5>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-light rounded-circle d-inline-flex align-items-center justify-content-center"
+                style={{ width: 34, height: 34, cursor: "pointer" }}
+                aria-label="Close"
+                onClick={() => setViewEvidence(null)}
+              >
+                <i className="bi bi-x-lg" />
+              </button>
+            </div>
 
-              <div className="text-center p-2 mb-3 rounded-2" style={{ background: "rgba(0, 0, 0, 0.5)", maxHeight: "70vh", overflow: "auto" }}>
-                <img
-                  src={viewEvidence}
-                  alt="Uploaded receipt screenshot"
-                  className="img-fluid rounded-2"
-                  style={{ maxHeight: "65vh", objectFit: "contain" }}
-                />
-              </div>
+            <div className="text-center p-2 mb-3 rounded-2" style={{ background: "rgba(0, 0, 0, 0.5)", maxHeight: "70vh", overflow: "auto" }}>
+              <img
+                src={viewEvidence}
+                alt="Uploaded receipt screenshot"
+                className="img-fluid rounded-2"
+                style={{ maxHeight: "65vh", objectFit: "contain" }}
+              />
+            </div>
 
-              <div className="d-flex justify-content-between align-items-center">
-                <a
-                  href={viewEvidence}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-future btn-future-outline btn-sm"
-                >
-                  <i className="bi bi-box-arrow-up-right me-1" /> Open Full Image
-                </a>
-                <button
-                  type="button"
-                  className="btn-future btn-future-primary btn-sm px-4"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setViewEvidence(null);
-                  }}
-                >
-                  Close
-                </button>
-              </div>
+            <div className="d-flex justify-content-between align-items-center">
+              <a
+                href={viewEvidence}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-future btn-future-outline btn-sm"
+              >
+                <i className="bi bi-box-arrow-up-right me-1" /> Open Full Image
+              </a>
+              <button
+                type="button"
+                className="btn-future btn-future-primary btn-sm px-4"
+                onClick={() => setViewEvidence(null)}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
